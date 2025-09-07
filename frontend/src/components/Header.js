@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { FiUser, FiLogOut } from 'react-icons/fi';
+import { Link, useLocation } from 'react-router-dom';
+import { FiUser, FiLogOut, FiSettings, FiHome, FiCloud, FiDollarSign, FiBook } from 'react-icons/fi';
 
 const HeaderContainer = styled.header`
   background: rgba(255, 255, 255, 0.1);
@@ -25,6 +26,32 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+`;
+
+const Navigation = styled.nav`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+`;
+
+const NavLink = styled(Link)`
+  color: white;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background: ${props => props.$isActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent'};
+  border: 1px solid ${props => props.$isActive ? 'rgba(255, 255, 255, 0.3)' : 'transparent'};
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 `;
 
 const UserSection = styled.div`
@@ -60,10 +87,24 @@ const LogoutButton = styled.button`
   }
 `;
 
-function Header({ user }) {
+function Header({ user, onLogout }) {
+  const location = useLocation();
+  
   const handleLogout = () => {
-    localStorage.removeItem('dashboard_user');
-    window.location.reload();
+    if (onLogout) {
+      onLogout();
+    } else {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
+      window.location.reload();
+    }
+  };
+
+  const isActive = (path) => {
+    if (path === '/dashboard' && (location.pathname === '/' || location.pathname === '/dashboard')) {
+      return true;
+    }
+    return location.pathname === path;
   };
 
   return (
@@ -73,16 +114,42 @@ function Header({ user }) {
           🚀 Personalized Dashboard
         </Logo>
         {user && (
-          <UserSection>
-            <UserInfo>
-              <FiUser />
-              {user.name}
-            </UserInfo>
-            <LogoutButton onClick={handleLogout}>
-              <FiLogOut />
-              Logout
-            </LogoutButton>
-          </UserSection>
+          <>
+            <Navigation>
+              <NavLink to="/dashboard" $isActive={isActive('/dashboard')}>
+                <FiHome />
+                Dashboard
+              </NavLink>
+              <NavLink to="/weather" $isActive={isActive('/weather')}>
+                <FiCloud />
+                Weather
+              </NavLink>
+              <NavLink to="/crypto" $isActive={isActive('/crypto')}>
+                <FiDollarSign />
+                Crypto
+              </NavLink>
+              <NavLink to="/recipes" $isActive={isActive('/recipes')}>
+                <FiBook />
+                Recipes
+              </NavLink>
+            </Navigation>
+            <UserSection>
+              <UserInfo>
+                <FiUser />
+                {user.name}
+              </UserInfo>
+              <Link to="/settings" style={{ textDecoration: 'none' }}>
+                <LogoutButton as="div">
+                  <FiSettings />
+                  Settings
+                </LogoutButton>
+              </Link>
+              <LogoutButton onClick={handleLogout}>
+                <FiLogOut />
+                Logout
+              </LogoutButton>
+            </UserSection>
+          </>
         )}
       </HeaderContent>
     </HeaderContainer>

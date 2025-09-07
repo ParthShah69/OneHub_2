@@ -252,10 +252,6 @@ function Dashboard({ user }) {
             <FiRefreshCw />
             Refresh
           </RefreshButton>
-          <SettingsButton>
-            <FiSettings />
-            Settings
-          </SettingsButton>
         </ActionButtons>
       </DashboardHeader>
 

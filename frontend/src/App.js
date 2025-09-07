@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
-import Onboarding from './components/Onboarding';
+import Auth from './components/Auth';
+import PreferencesSetup from './components/PreferencesSetup';
+import Settings from './components/Settings';
+import WeatherDashboard from './components/WeatherDashboard';
+import CryptoTracker from './components/CryptoTracker';
+import RecipeFinder from './components/RecipeFinder';
 import Header from './components/Header';
 import './App.css';
 
@@ -18,29 +23,78 @@ const MainContent = styled.div`
 `;
 
 function App() {
-  const [user, setUser] = useState({
-    id: 'user123',
-    name: 'John Doe',
-    preferences: {
-      news_categories: ['technology', 'business'],
-      job_categories: ['software engineering', 'data science'],
-      interests: ['AI', 'blockchain', 'startups']
-    }
-  });
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [needsPreferences, setNeedsPreferences] = useState(false);
+  const [authToken, setAuthToken] = useState(null);
 
   useEffect(() => {
-    // Check if user exists in localStorage
-    const savedUser = localStorage.getItem('dashboard_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    checkAuthStatus();
   }, []);
 
-  const handleUserCreate = (userData) => {
+  const checkAuthStatus = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const savedUser = localStorage.getItem('user_data');
+      
+      if (token && savedUser) {
+        setAuthToken(token);
+        const userData = JSON.parse(savedUser);
+        
+        // Verify token with backend and get current user info
+        const response = await fetch('http://localhost:5000/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          setIsAuthenticated(true);
+          
+          // Check if user has set preferences
+          const hasPreferences = data.user.preferences && 
+            (Object.keys(data.user.preferences).length > 0);
+          setNeedsPreferences(!hasPreferences);
+        } else {
+          // Token invalid, clear storage
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user_data');
+          setIsAuthenticated(false);
+        }
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAuthSuccess = (userData, token) => {
     setUser(userData);
-    localStorage.setItem('dashboard_user', JSON.stringify(userData));
+    setAuthToken(token);
+    setIsAuthenticated(true);
+    setNeedsPreferences(true); // New users need to set preferences
+  };
+
+  const handlePreferencesComplete = (preferences) => {
+    setNeedsPreferences(false);
+    // Update user data with preferences
+    const updatedUser = { ...user, preferences };
+    setUser(updatedUser);
+    localStorage.setItem('user_data', JSON.stringify(updatedUser));
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    setUser(null);
+    setAuthToken(null);
+    setIsAuthenticated(false);
+    setNeedsPreferences(false);
   };
 
   if (isLoading) {
@@ -58,20 +112,53 @@ function App() {
   return (
     <Router>
       <AppContainer>
-        <Header user={user} />
+        {isAuthenticated && <Header user={user} onLogout={handleLogout} />}
         <MainContent>
           <Routes>
             <Route 
               path="/" 
               element={
-                user ? 
-                <Dashboard user={user} /> : 
-                <Onboarding onUserCreate={handleUserCreate} />
+                !isAuthenticated ? (
+                  <Auth onAuthSuccess={handleAuthSuccess} />
+                ) : needsPreferences ? (
+                  <PreferencesSetup 
+                    user={user} 
+                    onComplete={handlePreferencesComplete} 
+                  />
+                ) : (
+                  <Dashboard user={user} />
+                )
               } 
             />
             <Route 
               path="/dashboard" 
-              element={<Dashboard user={user} />} 
+              element={
+                isAuthenticated ? <Dashboard user={user} /> : <Auth onAuthSuccess={handleAuthSuccess} />
+              } 
+            />
+            <Route 
+              path="/settings" 
+              element={
+                isAuthenticated ? <Settings user={user} /> : <Auth onAuthSuccess={handleAuthSuccess} />
+              } 
+            />
+            <Route 
+              path="/weather" 
+              element={
+                isAuthenticated ? <WeatherDashboard /> : <Auth onAuthSuccess={handleAuthSuccess} />
+              } 
+            />
+            <Route 
+              path="/crypto" 
+              element={
+                isAuthenticated ? <CryptoTracker /> : <Auth onAuthSuccess={handleAuthSuccess} />
+              } 
+            />
+            <Route 
+              path="/recipes" 
+              element={
+                isAuthenticated ? <RecipeFinder /> : <Auth onAuthSuccess={handleAuthSuccess} />
+              } 
             />
           </Routes>
         </MainContent>
